@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>历史数据对比 - 时间线视图</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -515,6 +517,85 @@
       .drop-zone { padding: 40px 20px; }
       .header-title { font-size: 26px; letter-spacing: 3px; }
     }
+
+    /* ========== A4 打印样式：压缩到一张A4 ========== */
+    @page { size:A4; margin:5mm 7mm; }
+    @media print {
+      body { background:#fff!important; padding:0!important; }
+      .container { max-width:none!important; }
+
+      /* 隐藏不需要的元素 */
+      .drop-zone, .toolbar, .loading-overlay, .btn-browse { display:none!important; }
+
+      /* 标题区压缩 */
+      .header { margin-bottom:12px!important; }
+      .header-title { font-size:14px!important; letter-spacing:2px!important; color:#1a1a2e!important; margin-bottom:4px!important; }
+      .header-sub { font-size:8px!important; color:#666!important; }
+
+      /* 时间线压缩 */
+      .timeline-section { margin-bottom:16px!important; }
+      .timeline-title { font-size:11px!important; margin-bottom:10px!important; }
+      .timeline-track { padding:12px 0 32px!important; }
+      .dot-date { font-size:10px!important; }
+      .dot-label { font-size:8px!important; }
+      .timeline-dots { min-height:auto!important; }
+
+      /* 对比区 */
+      .compare-section { margin-top:8px!important; }
+      .compare-header { margin-bottom:16px!important; gap:12px!important; }
+      .compare-title { font-size:16px!important; letter-spacing:2px!important; color:#1a1a2e!important; }
+      .compare-hint { font-size:9px!important; padding:4px 10px!important; background:transparent!important; color:#666!important; border:1px solid #ddd!important; }
+
+      /* 对比卡片 */
+      .compare-grid { gap:0!important; }
+      .compare-card {
+        border-radius:10px!important; min-height:auto!important;
+        box-shadow:none!important; border-width:2px!important;
+        -webkit-print-color-adjust:exact; print-color-adjust:exact;
+      }
+      .card-top-bar { height:4px!important; }
+      .compare-date { font-size:16px!important; padding:12px 16px 10px!important; }
+      .core-metrics { gap:10px!important; padding:14px 16px!important; }
+      .metric-box { padding:12px 10px!important; border-radius:12px!important; }
+      .metric-label { font-size:9px!important; margin-bottom:6px!important; }
+      .metric-value { font-size:20px!important; }
+      .metric-unit { font-size:9px!important; margin-top:4px!important; }
+      .structure-tag { font-size:11px!important; padding:8px 16px!important; margin:0 16px 14px!important; border-radius:16px!important; }
+
+      /* 题材/板块 */
+      .themes-section, .sectors-section { padding:0 16px 14px!important; }
+      .section-title { font-size:9px!important; margin-bottom:8px!important; }
+      .theme-item { padding:8px 12px!important; border-radius:10px!important; margin-bottom:6px!important; gap:8px!important; }
+      .theme-name { font-size:12px!important; }
+      .theme-stage { font-size:9px!important; padding:3px 8px!important; }
+      .theme-judge { font-size:10px!important; padding:4px 8px!important; }
+      .sector-item { padding:8px 12px!important; border-radius:10px!important; margin-bottom:6px!important; gap:8px!important; }
+      .sector-rank-badge { width:24px!important; height:24px!important; border-radius:6px!important; font-size:11px!important; }
+      .sector-name { font-size:12px!important; }
+      .sector-count { font-size:14px!important; }
+
+      /* 中间箭头压缩 */
+      .compare-arrow { padding:0 2px!important; }
+      .arrow-line { height:40px!important; }
+      .arrow-icon { font-size:24px!important; margin:10px 0!important; }
+
+      /* 强度变化压缩 */
+      .strength-change {
+        padding:16px 24px!important; gap:30px!important; margin-top:16px!important;
+        border-radius:12px!important; background:transparent!important; border:1px solid #ddd!important;
+      }
+      .change-label { font-size:9px!important; margin-bottom:6px!important; color:#666!important; }
+      .change-value { font-size:22px!important; }
+      .change-icon { font-size:24px!important; color:#1a1a2e!important; }
+
+      /* 颜色打印 */
+      .side-a .compare-date { color:#4a6cf7!important; }
+      .side-b .compare-date { color:#e65100!important; }
+      .metric-value.strong { color:#c62828!important; }
+      .metric-value.medium-strong { color:#e65100!important; }
+      .metric-value.watch { color:#2e7d32!important; }
+      .metric-value.weak { color:#00897b!important; }
+    }
   </style>
 </head>
 <body>
@@ -585,6 +666,7 @@
   <div class="toolbar" id="toolbar" style="display:none;">
     <button class="btn-clear" onclick="clearAll()">🗑 清空全部</button>
     <button class="btn-export" id="btnExportDiff" onclick="exportDiff()" disabled>📄 导出对比报告</button>
+    <button class="btn-export" id="btnExportPDF" onclick="exportPDF()" disabled style="background:linear-gradient(135deg,#00b894,#00cec9);">📊 导出PDF</button>
   </div>
 </div>
 
@@ -1038,9 +1120,64 @@ function exportDiff() {
   a.download = `对比报告_${selectedA}_vs_${selectedB}.txt`;
   a.click();
   URL.revokeObjectURL(url);
-}
+  }
 
-function clearAll() {
+  // ========== 导出PDF（压缩到一张A4）==========
+  async function exportPDF() {
+    if (!selectedA || !selectedB) return;
+
+    const btn = document.getElementById('btnExportPDF');
+    const origText = btn.textContent;
+    btn.textContent = '⏳ 生成中...';
+    btn.disabled = true;
+
+    try {
+      const section = document.getElementById('compareSection');
+      const canvas = await html2canvas(section, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+        windowWidth: section.scrollWidth,
+        windowHeight: section.scrollHeight
+      });
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfW = 210;
+      const pdfH = 297;
+      const margin = 3;
+      const usableW = pdfW - margin * 2;
+      const usableH = pdfH - margin * 2;
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+
+      // 强制缩放到一张A4
+      const scaleX = usableW / imgW;
+      const scaleY = usableH / imgH;
+      const scale = Math.min(scaleX, scaleY);
+      const finalW = imgW * scale;
+      const finalH = imgH * scale;
+      const x = (pdfW - finalW) / 2;
+      const y = margin + (usableH - finalH) / 2;
+
+      pdf.addImage(imgData, 'JPEG', x, y, finalW, finalH);
+
+      pdf.save('对比报告_' + selectedA + '_vs_' + selectedB + '.pdf');
+
+    } catch(e) {
+      console.error('PDF生成失败:', e);
+      alert('PDF生成失败，将使用打印方式。');
+      window.print();
+    }
+
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+
+  function clearAll() {
   Object.keys(records).forEach(k => delete records[k]);
   selectedA = null;
   selectedB = null;
