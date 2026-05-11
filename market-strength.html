@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>大盘强度判断 - 趋势短线版</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -315,52 +317,71 @@
       border-radius: 8px; font-size: 12px; color: #e65100;
     }
 
-    /* 打印样式 */
-    @media (max-width: 900px) {
-      .sector-col-head { grid-template-columns: 32px 1fr 50px 80px 70px 24px; }
-      .sector-col-head span:nth-child(6),
-      .sector-col-head span:nth-child(7),
-      .sector-col-head span:nth-child(8),
-      .sector-col-head span:nth-child(9) { display: none; }
-      .sector-row { grid-template-columns: 32px 1fr 50px 80px 70px 24px; }
-      .sector-row .dragon-input:nth-child(7),
-      .sector-row .expect-select:nth-child(8),
-      .sector-row .dragon-input:nth-child(9),
-      .sector-row .expect-select:nth-child(10) { display: none; }
-      .sector-row .judge-cell { display: none; }
-      .logic-row { display: none; }
-      .container { padding: 20px; }
-    }
-
-    @media (max-width: 600px) {
-      .grid { grid-template-columns: 1fr; }
-      .card { min-height: auto; }
-    }
-
-    @page { size:A4; margin:10mm 12mm; }
+    /* 打印样式 - 压缩到单张A4 */
+    @page { size:A4; margin:6mm 8mm; }
     @media print {
-      html,body { width:210mm; min-height:297mm; background:#fff!important; padding:0!important; margin:0!important; display:block!important; }
+      html,body { width:210mm; min-height:297mm; background:#fff!important; padding:0!important; margin:0!important; display:block!important; font-size:9px; }
       body { display:flex; justify-content:center; }
-      .container { box-shadow:none!important; border-radius:0!important; width:100%!important; max-width:none!important; padding:20px 24px 24px!important; border:1px solid #ddd; }
-      .title { font-size:16px!important; margin-bottom:4px!important; }
-      .subtitle { font-size:10px!important; margin-bottom:16px!important; }
-      .grid { gap:12px!important; }
-      .card { padding:14px 10px 12px!important; min-height:auto!important; }
-      .card-label { font-size:12px!important; margin-bottom:10px!important; }
-      .strength-display { min-height:80px!important; font-size:24px!important; }
-      .strength-emoji { font-size:16px!important; }
-      .strength-sub { font-size:10px!important; }
-      .rule-bar { font-size:9px!important; padding:6px 10px!important; }
-      .input-row input[type="number"] { font-size:15px!important; padding:9px!important; }
-      .section-divider { margin:14px 0 0!important; }
-      .sector-area, .stock-area { padding:12px 10px 14px!important; }
-      .sector-title, .stock-title { font-size:12px!important; }
-      .sector-name-input, .sector-count-input, .stock-name-input, .stage-select, .expect-select { font-size:11px!important; padding:5px 6px!important; }
-      .judge-cell { font-size:11px!important; }
-      .datetime-bar { font-size:9px!important; margin-top:10px!important; }
-      .logic-textarea { min-height:36px!important; font-size:10px!important; }
+      .container { box-shadow:none!important; border-radius:0!important; width:100%!important; max-width:none!important; padding:8px 6px 6px!important; border:1px solid #ddd; }
+
+      .title { font-size:13px!important; margin-bottom:2px!important; letter-spacing:1px; }
+      .subtitle { font-size:8px!important; margin-bottom:8px!important; }
+
+      .grid { gap:6px!important; grid-template-columns:1fr 1fr 1fr; }
+      .card { padding:8px 8px 6px!important; min-height:auto!important; border-radius:8px!important; }
+      .card-label { font-size:10px!important; margin-bottom:6px!important; }
+      .strength-display { min-height:56px!important; font-size:20px!important; border-radius:8px!important; padding:8px 6px!important; gap:3px; }
+      .strength-emoji { font-size:14px!important; }
+      .strength-sub { font-size:8px!important; }
+      .rule-bar { font-size:8px!important; padding:4px 8px!important; margin-top:8px!important; border-radius:6px!important; line-height:1.5; }
+
+      .input-wrap { gap:5px!important; }
+      .input-row input[type="number"] { font-size:13px!important; padding:6px!important; border-radius:6px!important; }
+      .hint { font-size:8px!important; }
+
+      .struct-options { gap:4px!important; }
+      .struct-btn { padding:6px 0!important; font-size:11px!important; border-radius:6px!important; }
+
+      .section-divider { margin:10px 0 0!important; }
+
+      /* 板块区域压缩 */
+      .sector-area, .stock-area { margin-top:10px!important; }
+      .sector-left, .stock-left { padding:10px 8px 10px!important; border-radius:8px!important; }
+      .sector-header, .stock-header { margin-bottom:8px!important; }
+      .sector-title, .stock-title { font-size:11px!important; }
+      .btn-add-sector, .btn-add-stock { padding:3px 8px!important; font-size:10px!important; border-radius:4px!important; }
+
+      .sector-col-head, .stock-col-head { gap:3px!important; margin-bottom:2px!important; padding:0 1px!important; }
+      .sector-col-head span, .stock-col-head span { font-size:9px!important; }
+
+      .sector-row, .stock-row { gap:3px!important; }
+      .sector-col-head { grid-template-columns:28px 1fr 44px 72px 60px 60px 72px 60px 70px 20px!important; }
+      .sector-row { grid-template-columns:28px 1fr 44px 72px 60px 60px 72px 60px 70px 20px!important; }
+      .stock-col-head { grid-template-columns:28px 1fr 72px 60px 20px!important; }
+      .stock-row { grid-template-columns:28px 1fr 72px 60px 20px!important; }
+
+      .rank-badge, .stock-rank-badge { width:22px!important; height:22px!important; border-radius:5px!important; font-size:9px!important; }
+      .stock-rank-badge { border-radius:50%!important; }
+
+      .sector-name-input, .stock-name-input, .sector-count-input, .stage-select, .dragon-input, .expect-select {
+        font-size:9px!important; padding:3px 2px!important; border-radius:4px!important;
+      }
+      .sector-count-input { font-size:11px!important; }
+      .judge-cell { font-size:9px!important; padding:4px 2px!important; border-radius:4px!important; }
+
+      .btn-del-row { width:20px!important; height:20px!important; font-size:12px!important; border-radius:50%!important; }
+
+      .logic-row { gap:3px!important; padding:0 1px 4px!important; }
+      .logic-label { font-size:9px!important; padding-top:2px!important; }
+      .logic-textarea { padding:4px 6px!important; font-size:9px!important; min-height:28px!important; border-radius:4px!important; line-height:1.4; }
+
+      .datetime-bar { font-size:8px!important; margin-top:8px!important; padding-top:8px!important; }
+
       .action-bar, .tip-incomplete, .btn-pdf, .btn-reset, .btn-add-sector, .btn-add-stock, .btn-del-row { display:none!important; }
+
       .card, .sector-area, .stock-area { break-inside:avoid; }
+
+      /* 打印颜色 */
       .strength-display.strong { background:#ffe4e1!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .strength-display.medium-strong { background:#fff3cd!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .strength-display.watch { background:#dcedc8!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -701,11 +722,68 @@
     });
   }
 
-  // ========== 全局操作 ==========
-  function generatePDF() {
+  // ========== PDF 生成（直接生成文件，压缩到一张A4）==========
+  async function generatePDF() {
     if (!isComplete) { document.getElementById('tipIncomplete').style.display='block'; return; }
     updateTime();
-    setTimeout(function(){ window.print(); }, 100);
+
+    const btn = document.getElementById('pdfBtn');
+    const origText = btn.textContent;
+    btn.textContent = '⏳ 生成中...';
+    btn.disabled = true;
+
+    try {
+      const actionBar = document.querySelector('.action-bar');
+      const origDisplay = actionBar.style.display;
+      actionBar.style.display = 'none';
+
+      const container = document.querySelector('.container');
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#fff',
+        logging: false,
+        windowWidth: container.scrollWidth,
+        windowHeight: container.scrollHeight
+      });
+
+      actionBar.style.display = origDisplay;
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfW = 210;
+      const pdfH = 297;
+      const margin = 3;
+      const usableW = pdfW - margin * 2;
+      const usableH = pdfH - margin * 2;
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+
+      // 计算缩放比例，强制放入一张A4
+      const scaleX = usableW / imgW;
+      const scaleY = usableH / imgH;
+      const scale = Math.min(scaleX, scaleY, 0.8); // 不超过0.8，保证清晰度
+      const finalW = imgW * scale;
+      const finalH = imgH * scale;
+      const x = (pdfW - finalW) / 2;
+      const y = margin + (usableH - finalH) / 2; // 垂直居中
+
+      pdf.addImage(imgData, 'JPEG', x, y, finalW, finalH);
+
+      const now = new Date();
+      const dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
+      pdf.save('大盘强度_' + dateStr + '.pdf');
+
+    } catch(e) {
+      console.error('PDF生成失败:', e);
+      alert('PDF生成失败，将使用打印方式。');
+      window.print();
+    }
+
+    btn.textContent = origText;
+    btn.disabled = false;
   }
 
   function resetAll() {
