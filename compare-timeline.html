@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>历史数据对比 - 时间线视图</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Microsoft YaHei', 'PingFang SC', '微软雅黑', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      padding: 40px 24px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* 顶部标题区 */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .header-title {
+      font-size: 42px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 6px;
+      margin-bottom: 12px;
+      text-shadow: 0 4px 20px rgba(74, 108, 247, 0.3);
+    }
+    .header-sub {
+      font-size: 16px;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 2px;
+    }
+
+    /* 拖拽区域 */
+    .drop-zone {
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 24px;
+      padding: 56px 32px;
+      text-align: center;
+      transition: all 0.3s;
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(10px);
+      margin-bottom: 48px;
+    }
+    .drop-zone.dragover {
+      border-color: #4a6cf7;
+      background: rgba(74, 108, 247, 0.1);
+    }
+    .drop-zone-icon { font-size: 56px; margin-bottom: 20px; opacity: 0.8; }
+    .drop-zone-text { font-size: 20px; color: rgba(255,255,255,0.8); margin-bottom: 10px; font-weight: 500; }
+    .drop-zone-hint { font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
+    .drop-zone input[type="file"] { display: none; }
+    .btn-browse {
+      display: inline-block;
+      padding: 14px 36px;
+      background: linear-gradient(135deg, #4a6cf7, #6c5ce7);
+      color: #fff;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.2s;
+      box-shadow: 0 8px 24px rgba(74, 108, 247, 0.4);
+    }
+    .btn-browse:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(74, 108, 247, 0.5); }
+
+    /* 时间线 */
+    .timeline-section { margin-bottom: 56px; }
+    .timeline-title { 
+      font-size: 18px; 
+      font-weight: 700; 
+      color: #fff; 
+      margin-bottom: 24px; 
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+    }
+    .timeline-count { 
+      font-size: 13px; 
+      font-weight: 400; 
+      color: rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.1);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    .timeline-track { position: relative; padding: 24px 0 56px; }
+    .timeline-line {
+      position: absolute;
+      top: 50%;
+      left: 5%;
+      right: 5%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      border-radius: 2px;
+    }
+    .timeline-dots {
+      position: relative;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      min-height: 100px;
+    }
+    .timeline-dot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .timeline-dot:hover .dot-node { transform: scale(1.2); }
+    .timeline-dot.selected .dot-node {
+      background: linear-gradient(135deg, #4a6cf7, #6c5ce7);
+      border-color: transparent;
+      transform: scale(1.3);
+      box-shadow: 0 0 24px rgba(74, 108, 247, 0.6);
+    }
+    .dot-node {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.3);
+      transition: all 0.3s;
+      z-index: 1;
+    }
+    .dot-date {
+      position: absolute;
+      top: 48px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .dot-label {
+      margin-top: 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      max-width: 100px;
+      text-align: center;
+    }
+    .timeline-dot.selected .dot-label { color: #4a6cf7; font-weight: 600; }
+
+    .timeline-empty {
+      text-align: center;
+      padding: 60px;
+      color: rgba(255,255,255,0.3);
+      font-size: 16px;
+    }
+
+    /* ========== 大气对比区 ========== */
+    .compare-section { margin-top: 24px; }
+    .compare-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 40px;
+      gap: 24px;
+    }
+    .compare-title { 
+      font-size: 28px; 
+      font-weight: 800; 
+      color: #fff; 
+      letter-spacing: 4px;
+    }
+    .compare-hint { 
+      font-size: 14px; 
+      color: rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.05);
+      padding: 8px 16px;
+      border-radius: 20px;
+    }
+
+    /* 三列大气布局 */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 80px 1fr;
+      gap: 0;
+      align-items: stretch;
+    }
+
+    /* 对比卡片 - 超大气风格 */
+    .compare-card {
+      background: rgba(255,255,255,0.97);
+      border-radius: 28px;
+      padding: 0;
+      min-height: 520px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .compare-card.side-a { border: 3px solid #4a6cf7; }
+    .compare-card.side-b { border: 3px solid #e65100; }
+    .compare-card.empty { 
+      background: rgba(255,255,255,0.05);
+      border: 2px dashed rgba(255,255,255,0.2);
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+    }
+    .compare-empty-text { 
+      color: rgba(255,255,255,0.3); 
+      font-size: 18px; 
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* 卡片顶部装饰条 */
+    .card-top-bar {
+      height: 8px;
+    }
+    .side-a .card-top-bar { background: linear-gradient(90deg, #4a6cf7, #6c5ce7); }
+    .side-b .card-top-bar { background: linear-gradient(90deg, #ff8f00, #e65100); }
+
+    /* 卡片头部日期 */
+    .compare-date {
+      font-size: 32px;
+      font-weight: 900;
+      text-align: center;
+      padding: 32px 24px 24px;
+      letter-spacing: 3px;
+      color: #1a1a2e;
+      border-bottom: 1px solid #eee;
+    }
+    .side-a .compare-date { color: #4a6cf7; }
+    .side-b .compare-date { color: #e65100; }
+
+    /* 核心指标区 - 超大展示 */
+    .core-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 28px 24px;
+    }
+    .metric-box {
+      background: linear-gradient(135deg, #f8f9fb, #f0f2f5);
+      border-radius: 20px;
+      padding: 28px 20px;
+      text-align: center;
+    }
+    .metric-label {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .metric-value {
+      font-size: 36px;
+      font-weight: 900;
+      color: #1a1a2e;
+      line-height: 1;
+    }
+    .metric-value.strong { color: #c62828; }
+    .metric-value.medium-strong { color: #e65100; }
+    .metric-value.watch { color: #2e7d32; }
+    .metric-value.weak { color: #00897b; }
+    .metric-unit {
+      font-size: 14px;
+      color: #aaa;
+      margin-top: 8px;
+    }
+
+    /* 结构标签 - 大气泡 */
+    .structure-tag {
+      display: block;
+      text-align: center;
+      background: linear-gradient(135deg, #eef2ff, #e3e8ff);
+      color: #4a6cf7;
+      padding: 16px 32px;
+      border-radius: 30px;
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0 24px 24px;
+      letter-spacing: 2px;
+    }
+    .side-b .structure-tag {
+      background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+      color: #e65100;
+    }
+
+    /* 题材区块 */
+    .themes-section { padding: 0 24px 24px; }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #aaa;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .theme-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      background: #f8f9fb;
+      border-radius: 16px;
+      margin-bottom: 12px;
+    }
+    .theme-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+      flex: 1;
+    }
+    .theme-stage {
+      font-size: 14px;
+      color: #666;
+      background: #fff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid #e4e8ef;
+      font-weight: 500;
+    }
+    .theme-judge {
+      font-size: 15px;
+      font-weight: 800;
+      padding: 8px 18px;
+      border-radius: 10px;
+    }
+    .judge-strong { color: #c62828; background: #fff0f0; }
+    .judge-ms { color: #e65100; background: #fff8e1; }
+    .judge-watch { color: #2e7d32; background: #e8f5e9; }
+    .judge-weak { color: #00897b; background: #e0f2f1; }
+
+    /* 板块区块 */
+    .sectors-section { padding: 0 24px 24px; }
+    .sector-item {
+      display: grid;
+      grid-template-columns: 40px 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 16px 18px;
+      background: #f8f9fb;
+      border-radius: 14px;
+      margin-bottom: 10px;
+    }
+    .sector-rank-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 800;
+    }
+    .rank-1 { background: linear-gradient(135deg, #fff0f0, #ffcdd2); color: #e53935; }
+    .rank-2 { background: linear-gradient(135deg, #fff8e1, #ffecb3); color: #f9a825; }
+    .rank-3 { background: linear-gradient(135deg, #f3f0ff, #d1c4e9); color: #7c4dff; }
+    .rank-n { background: #f0f2f5; color: #888; }
+    .sector-name { font-size: 17px; font-weight: 700; color: #333; }
+    .sector-count { 
+      font-size: 20px; 
+      font-weight: 900; 
+      color: #c62828; 
+    }
+
+    /* 中间箭头 */
+    .compare-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+    }
+    .arrow-line {
+      width: 3px;
+      height: 60px;
+      background: linear-gradient(180deg, #4a6cf7, #e65100);
+      border-radius: 2px;
+    }
+    .arrow-icon {
+      font-size: 42px;
+      color: rgba(255,255,255,0.3);
+      margin: 20px 0;
+    }
+
+    /* 强度变化指示 - 大气风格 */
+    .strength-change {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 60px;
+      padding: 36px 48px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 24px;
+      margin-top: 40px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .change-box {
+      text-align: center;
+    }
+    .change-label { 
+      font-size: 14px; 
+      color: rgba(255,255,255,0.4); 
+      margin-bottom: 12px; 
+      text-transform: uppercase; 
+      letter-spacing: 2px;
+    }
+    .change-value { 
+      font-size: 40px; 
+      font-weight: 900; 
+      color: #fff;
+    }
+    .change-up { color: #ff6b6b; }
+    .change-down { color: #51cf66; }
+    .change-same { color: rgba(255,255,255,0.5); }
+    .change-icon { 
+      font-size: 48px; 
+      color: rgba(255,255,255,0.3);
+    }
+
+    /* 工具栏 */
+    .toolbar {
+      display: flex;
+      gap: 16px;
+      margin-top: 32px;
+      padding-top: 32px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      justify-content: center;
+    }
+    .btn-clear {
+      padding: 14px 28px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-clear:hover { 
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+    .btn-export {
+      padding: 14px 36px;
+      background: linear-gradient(135deg, #4a6cf7, #6c5ce7);
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 8px 24px rgba(74, 108, 247, 0.4);
+    }
+    .btn-export:hover { 
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(74, 108, 247, 0.5);
+    }
+    .btn-export:disabled { 
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.3);
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* 加载提示 */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(26, 26, 46, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .loading-overlay.show { display: flex; }
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(74, 108, 247, 0.2);
+      border-top-color: #4a6cf7;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .loading-text { 
+      font-size: 18px; 
+      color: rgba(255,255,255,0.8);
+      font-weight: 500;
+    }
+
+    /* 响应式 */
+    @media (max-width: 1024px) {
+      .compare-grid { grid-template-columns: 1fr; gap: 24px; }
+      .compare-arrow { transform: rotate(90deg); height: 60px; flex-direction: row; }
+      .compare-arrow .arrow-line { width: 60px; height: 3px; }
+      .header-title { font-size: 32px; }
+      .compare-date { font-size: 26px; }
+      .metric-value { font-size: 28px; }
+      .change-value { font-size: 32px; }
+    }
+    @media (max-width: 768px) {
+      body { padding: 24px 16px; }
+      .drop-zone { padding: 40px 20px; }
+      .header-title { font-size: 26px; letter-spacing: 3px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- 顶部标题 -->
+  <div class="header">
+    <div class="header-title">📊 历史数据对比</div>
+    <div class="header-sub">拖拽 PDF 文件导入，查看时间线并进行数据对比</div>
+  </div>
+
+  <!-- 拖拽区域 -->
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-zone-icon">📁</div>
+    <div class="drop-zone-text">将 PDF 文件拖拽到此处</div>
+    <div class="drop-zone-hint">支持从"大盘强度判断"页面导出的 PDF，可多选或批量拖入</div>
+    <label class="btn-browse" for="fileInput">选择文件</label>
+    <input type="file" id="fileInput" accept=".pdf" multiple>
+  </div>
+
+  <!-- 时间线 -->
+  <div class="timeline-section" id="timelineSection" style="display:none;">
+    <div class="timeline-title">
+      📅 时间线 <span class="timeline-count" id="timelineCount">0 条记录</span>
+    </div>
+    <div class="timeline-track">
+      <div class="timeline-line"></div>
+      <div class="timeline-dots" id="timelineDots"></div>
+    </div>
+  </div>
+
+  <!-- 对比区 -->
+  <div class="compare-section" id="compareSection" style="display:none;">
+    <div class="compare-header">
+      <div class="compare-title">📊 数据对比</div>
+      <div class="compare-hint">点击时间线选择两个日期进行对比</div>
+    </div>
+    <div class="compare-grid">
+      <div class="compare-card side-a empty" id="compareA">
+        <div class="card-top-bar"></div>
+        <div class="compare-empty-text">← 选择左侧日期</div>
+      </div>
+      <div class="compare-arrow">
+        <div class="arrow-line"></div>
+        <div class="arrow-icon">⟷</div>
+        <div class="arrow-line"></div>
+      </div>
+      <div class="compare-card side-b empty" id="compareB">
+        <div class="card-top-bar"></div>
+        <div class="compare-empty-text">选择右侧日期 →</div>
+      </div>
+    </div>
+
+    <!-- 强度变化 -->
+    <div class="strength-change" id="strengthChange" style="display:none;">
+      <div class="change-box">
+        <div class="change-label">左侧强度</div>
+        <div class="change-value" id="changeA">—</div>
+      </div>
+      <div class="change-icon" id="changeIcon">→</div>
+      <div class="change-box">
+        <div class="change-label">右侧强度</div>
+        <div class="change-value" id="changeB">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 工具栏 -->
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <button class="btn-clear" onclick="clearAll()">🗑 清空全部</button>
+    <button class="btn-export" id="btnExportDiff" onclick="exportDiff()" disabled>📄 导出对比报告</button>
+  </div>
+</div>
+
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">⏳ 正在解析 PDF...</div>
+</div>
+
+<script>
+// ========== 数据存储 ==========
+const records = {}; // { dateStr: parsedData }
+let selectedA = null;
+let selectedB = null;
+
+// ========== 拖拽处理 ==========
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pdf'));
+  if (files.length) handleFiles(files);
+});
+
+fileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length) handleFiles(files);
+});
+
+// ========== PDF 解析 ==========
+async function handleFiles(files) {
+  showLoading(true);
+  
+  for (const file of files) {
+    try {
+      const data = await parsePDF(file);
+      if (data && data.date) {
+        records[data.date] = data;
+      }
+    } catch (err) {
+      console.warn('解析失败:', file.name, err);
+      const dateFromName = extractDateFromFilename(file.name);
+      if (dateFromName) {
+        records[dateFromName] = { date: dateFromName, filename: file.name, manual: true };
+      }
+    }
+  }
+  
+  showLoading(false);
+  renderTimeline();
+  updateCompare();
+}
+
+async function parsePDF(file) {
+  if (!window.pdfjsLib) {
+    await loadPDFJS();
+  }
+  
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n';
+  }
+  
+  return extractDataFromText(fullText, file.name);
+}
+
+function loadPDFJS() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.onload = () => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve();
+    };
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+function extractDataFromText(text, filename) {
+  const data = {
+    date: null,
+    volume: null,
+    structure: null,
+    strength: null,
+    themes: [],
+    sectors: [],
+    filename: filename
+  };
+  
+  // 提取日期
+  const dateMatch = text.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/) 
+                 || text.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (dateMatch) {
+    if (dateMatch[1].length === 4) {
+      data.date = `${dateMatch[1]}-${dateMatch[2].padStart(2,'0')}-${dateMatch[3].padStart(2,'0')}`;
+    }
+  }
+  if (!data.date) {
+    data.date = extractDateFromFilename(filename);
+  }
+  
+  // 提取量能
+  const volMatch = text.match(/(?:量能|万亿)[:：]?\s*(\d+\.?\d*)/);
+  if (volMatch) data.volume = parseFloat(volMatch[1]);
+  
+  // 提取结构
+  if (text.includes('上升趋势')) data.structure = '上升趋势';
+  else if (text.includes('震荡整理')) data.structure = '震荡整理';
+  else if (text.includes('下降趋势')) data.structure = '下降趋势';
+  else if (text.includes('反弹修复')) data.structure = '反弹修复';
+  
+  // 提取强度
+  if (text.includes('强') && !text.includes('观望')) data.strength = 'strong';
+  else if (text.includes('偏强')) data.strength = 'medium-strong';
+  else if (text.includes('观望')) data.strength = 'watch';
+  else if (text.includes('弱')) data.strength = 'weak';
+  
+  // 提取题材
+  const stageMap = {
+    '主升': '主升',
+    '震荡分化': '震荡分化',
+    '左侧埋伏': '左侧埋伏',
+    '启动段': '启动段'
+  };
+  for (const [stage, label] of Object.entries(stageMap)) {
+    if (text.includes(stage)) {
+      const idx = text.indexOf(stage);
+      const before = text.slice(Math.max(0, idx-20), idx);
+      const themeMatch = before.match(/[\u4e00-\u9fa5]{2,8}(?=[\u4e00-\u9fa5]*?(?:主升|震荡|左侧|启动))/);
+      if (themeMatch) {
+        data.themes.push({ name: themeMatch[0], stage: label });
+      }
+    }
+  }
+  
+  // 提取板块
+  const sectorPatterns = [
+    /([\u4e00-\u9fa5]{2,6})(?:板块|行业)[^\d]*?(\d+)(?:涨停)?/g,
+    /([\u4e00-\u9fa5]{2,6})[^\d]*?(\d+)(?:涨停)/g
+  ];
+  
+  for (const pattern of sectorPatterns) {
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const name = match[1];
+      const count = parseInt(match[2]);
+      if (!data.sectors.find(s => s.name === name)) {
+        data.sectors.push({ name, count });
+      }
+    }
+  }
+  
+  return data;
+}
+
+function extractDateFromFilename(filename) {
+  const match = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+
+// ========== UI 渲染 ==========
+function showLoading(show) {
+  document.getElementById('loadingOverlay').classList.toggle('show', show);
+}
+
+function renderTimeline() {
+  const section = document.getElementById('timelineSection');
+  const dotsContainer = document.getElementById('timelineDots');
+  const countEl = document.getElementById('timelineCount');
+  
+  const dates = Object.keys(records).sort();
+  
+  if (dates.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = 'block';
+  countEl.textContent = `${dates.length} 条记录`;
+  dotsContainer.innerHTML = '';
+  
+  dates.forEach((date, idx) => {
+    const dot = document.createElement('div');
+    dot.className = 'timeline-dot';
+    dot.dataset.date = date;
+    dot.onclick = () => selectOnTimeline(date);
+    
+    const shortDate = date.slice(5); // MM-DD
+    const strength = records[date].strength;
+    const strengthLabels = { strong:'强', 'medium-strong':'偏强', watch:'观望', weak:'弱' };
+    const strengthText = strengthLabels[strength] || '未知';
+    
+    dot.innerHTML = `
+      <div class="dot-node"></div>
+      <div class="dot-date">${shortDate}</div>
+      <div class="dot-label">${strengthText}</div>
+    `;
+    
+    dotsContainer.appendChild(dot);
+  });
+  
+  // 自动选择前两个
+  if (dates.length >= 2 && !selectedA && !selectedB) {
+    selectOnTimeline(dates[0]);
+    selectOnTimeline(dates[1]);
+  } else {
+    updateDotSelection();
+  }
+}
+
+function selectOnTimeline(date) {
+  if (!selectedA) {
+    selectedA = date;
+  } else if (!selectedB || selectedB === date) {
+    selectedB = date === selectedA ? null : date;
+    if (!selectedB && selectedA) {
+      const dates = Object.keys(records).sort();
+      const idx = dates.indexOf(date);
+      if (idx > 0) {
+        selectedA = dates[idx - 1];
+        selectedB = date;
+      } else if (idx < dates.length - 1) {
+        selectedB = dates[idx + 1];
+      }
+    }
+  } else {
+    selectedB = date;
+  }
+  
+  updateDotSelection();
+  updateCompare();
+}
+
+function updateDotSelection() {
+  document.querySelectorAll('.timeline-dot').forEach(dot => {
+    dot.classList.toggle('selected', 
+      dot.dataset.date === selectedA || dot.dataset.date === selectedB);
+  });
+}
+
+function updateCompare() {
+  const section = document.getElementById('compareSection');
+  const cardA = document.getElementById('compareA');
+  const cardB = document.getElementById('compareB');
+  const changeEl = document.getElementById('strengthChange');
+  const changeIconEl = document.getElementById('changeIcon');
+  const changeAEl = document.getElementById('changeA');
+  const changeBEl = document.getElementById('changeB');
+  const toolbar = document.getElementById('toolbar');
+  const btnExport = document.getElementById('btnExportDiff');
+
+  if (!selectedA || !selectedB) {
+    section.style.display = 'none';
+    toolbar.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  toolbar.style.display = 'flex';
+
+  const dataA = records[selectedA];
+  const dataB = records[selectedB];
+
+  cardA.innerHTML = renderCompareCard(dataA, selectedA, 'A');
+  cardB.innerHTML = renderCompareCard(dataB, selectedB, 'B');
+
+  // 计算强度变化
+  const strengthOrder = { weak: 0, watch: 1, 'medium-strong': 2, strong: 3 };
+  const strengthLabels = { strong: '强', 'medium-strong': '偏强', watch: '观望', weak: '弱' };
+  const valA = strengthOrder[dataA.strength] ?? -1;
+  const valB = strengthOrder[dataB.strength] ?? -1;
+  const diff = valB - valA;
+
+  changeAEl.textContent = strengthLabels[dataA.strength] || '—';
+  changeAEl.className = 'change-value ' + (dataA.strength || '');
+  changeBEl.textContent = strengthLabels[dataB.strength] || '—';
+  changeBEl.className = 'change-value ' + (dataB.strength || '');
+
+  if (diff > 0) {
+    changeIconEl.textContent = '↑';
+    changeIconEl.className = 'change-icon change-up';
+  } else if (diff < 0) {
+    changeIconEl.textContent = '↓';
+    changeIconEl.className = 'change-icon change-down';
+  } else {
+    changeIconEl.textContent = '→';
+    changeIconEl.className = 'change-icon change-same';
+  }
+  changeEl.style.display = 'flex';
+
+  btnExport.disabled = false;
+}
+
+function renderCompareCard(data, date, side) {
+  if (!data) {
+    return `<div class="card-top-bar"></div><div class="compare-empty-text">选择日期</div>`;
+  }
+
+  const strengthLabels = {
+    strong: '强',
+    'medium-strong': '偏强',
+    watch: '观望',
+    weak: '弱'
+  };
+  const strengthCls = data.strength || '';
+
+  let html = `
+    <div class="card-top-bar"></div>
+    <div class="compare-date">${date}</div>
+
+    <!-- 核心指标 -->
+    <div class="core-metrics">
+      <div class="metric-box">
+        <div class="metric-label">大盘量能</div>
+        <div class="metric-value">${data.volume || '—'}</div>
+        ${data.volume ? '<div class="metric-unit">万亿</div>' : ''}
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">大盘强度</div>
+        <div class="metric-value ${strengthCls}">${strengthLabels[data.strength] || '—'}</div>
+      </div>
+    </div>
+
+    <!-- 结构标签 -->
+    <span class="structure-tag">${data.structure || '—'}</span>
+  `;
+
+  // 题材
+  if (data.themes && data.themes.length > 0) {
+    html += `
+      <div class="themes-section">
+        <div class="section-title">🎯 题材运行阶段</div>
+    `;
+    data.themes.forEach(t => {
+      const judgeMap = {
+        '主升': { cls: 'judge-strong', text: '强·可追' },
+        '震荡分化': { cls: 'judge-watch', text: '观望·谨慎' },
+        '左侧埋伏': { cls: 'judge-weak', text: '低吸·等待' },
+        '启动段': { cls: 'judge-ms', text: '关注·准备' }
+      };
+      const j = judgeMap[t.stage] || { cls: '', text: '' };
+      html += `
+        <div class="theme-item">
+          <span class="theme-name">${t.name}</span>
+          <span class="theme-stage">${t.stage}</span>
+          <span class="theme-judge ${j.cls}">${j.text}</span>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  // 板块
+  if (data.sectors && data.sectors.length > 0) {
+    html += `
+      <div class="sectors-section">
+        <div class="section-title">🏆 热门板块</div>
+    `;
+    data.sectors.slice(0, 5).forEach((s, idx) => {
+      const rankCls = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-n';
+      html += `
+        <div class="sector-item">
+          <div class="sector-rank-badge ${rankCls}">${idx + 1}</div>
+          <span class="sector-name">${s.name}</span>
+          <span class="sector-count">${s.count}涨停</span>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  return html;
+}
+
+// ========== 导出对比报告 ==========
+function exportDiff() {
+  if (!selectedA || !selectedB) return;
+  
+  const dataA = records[selectedA];
+  const dataB = records[selectedB];
+  
+  let content = `大盘强度对比报告\n`;
+  content += `${'='.repeat(40)}\n\n`;
+  content += `对比日期：${selectedA} ⟷ ${selectedB}\n`;
+  content += `${'─'.repeat(40)}\n\n`;
+  
+  content += `【${selectedA} 数据】\n`;
+  content += `  量能：${dataA.volume || '—'} 万亿\n`;
+  content += `  结构：${dataA.structure || '—'}\n`;
+  content += `  强度：${dataA.strength || '—'}\n`;
+  if (dataA.themes) {
+    content += `  题材：\n`;
+    dataA.themes.forEach(t => content += `    - ${t.name} (${t.stage})\n`);
+  }
+  if (dataA.sectors) {
+    content += `  板块：\n`;
+    dataA.sectors.forEach(s => content += `    - ${s.name}: ${s.count}涨停\n`);
+  }
+  
+  content += `\n${'─'.repeat(40)}\n`;
+  content += `\n【${selectedB} 数据】\n`;
+  content += `  量能：${dataB.volume || '—'} 万亿\n`;
+  content += `  结构：${dataB.structure || '—'}\n`;
+  content += `  强度：${dataB.strength || '—'}\n`;
+  if (dataB.themes) {
+    content += `  题材：\n`;
+    dataB.themes.forEach(t => content += `    - ${t.name} (${t.stage})\n`);
+  }
+  if (dataB.sectors) {
+    content += `  板块：\n`;
+    dataB.sectors.forEach(s => content += `    - ${s.name}: ${s.count}涨停\n`);
+  }
+  
+  const strengthOrder = { weak: 0, watch: 1, 'medium-strong': 2, strong: 3 };
+  const diff = (strengthOrder[dataB.strength] || 0) - (strengthOrder[dataA.strength] || 0);
+  content += `\n${'─'.repeat(40)}\n`;
+  content += `\n【强度变化】\n`;
+  if (diff > 0) content += `  ↑ 上升 ${diff} 级\n`;
+  else if (diff < 0) content += `  ↓ 下降 ${Math.abs(diff)} 级\n`;
+  else content += `  → 持平\n`;
+  
+  content += `\n${'='.repeat(40)}\n`;
+  content += `生成时间：${new Date().toLocaleString('zh-CN')}\n`;
+  
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `对比报告_${selectedA}_vs_${selectedB}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearAll() {
+  Object.keys(records).forEach(k => delete records[k]);
+  selectedA = null;
+  selectedB = null;
+  renderTimeline();
+  updateCompare();
+  document.getElementById('timelineSection').style.display = 'none';
+  document.getElementById('compareSection').style.display = 'none';
+  document.getElementById('toolbar').style.display = 'none';
+}
+
+// ========== 初始化 ==========
+function addDemoData() {
+  records['2026-05-08'] = {
+    date: '2026-05-08',
+    volume: 2.8,
+    structure: '上升趋势',
+    strength: 'strong',
+    themes: [
+      { name: 'AI应用', stage: '主升' },
+      { name: '半导体', stage: '震荡分化' }
+    ],
+    sectors: [
+      { name: 'AI语料', count: 28 },
+      { name: '算力', count: 22 },
+      { name: '机器人', count: 18 }
+    ]
+  };
+  records['2026-05-09'] = {
+    date: '2026-05-09',
+    volume: 2.1,
+    structure: '震荡整理',
+    strength: 'watch',
+    themes: [
+      { name: 'AI应用', stage: '震荡分化' },
+      { name: '低空经济', stage: '启动段' }
+    ],
+    sectors: [
+      { name: '低空经济', count: 15 },
+      { name: 'AI语料', count: 12 },
+      { name: '机器人', count: 10 }
+    ]
+  };
+  renderTimeline();
+  updateCompare();
+}
+
+// 启动时显示示例
+addDemoData();
+</script>
+</body>
+</html>
