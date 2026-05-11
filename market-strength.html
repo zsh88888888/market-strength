@@ -138,7 +138,7 @@
     /* 表头 */
     .sector-col-head {
       display: grid;
-      grid-template-columns: 36px 1fr 60px 90px 90px 70px 70px 26px;
+      grid-template-columns: 36px 1fr 60px 90px 90px 70px 90px 70px 90px 26px;
       gap: 6px; align-items: center;
       margin-bottom: 4px; padding: 0 2px;
     }
@@ -170,7 +170,7 @@
       gap: 6px; align-items: center;
     }
     .sector-row {
-      grid-template-columns: 36px 1fr 60px 90px 90px 70px 70px 26px;
+      grid-template-columns: 36px 1fr 60px 90px 90px 70px 90px 70px 90px 26px;
     }
     .stock-row {
       grid-template-columns: 36px 1fr 90px 90px 26px;
@@ -265,6 +265,18 @@
     .dragon-input:focus { border-color: #4a6cf7; }
     .dragon-input::placeholder { color: #c0c4cc; }
 
+    /* 明日预期 */
+    .expect-select {
+      width: 100%; padding: 8px 2px; border: 1.5px solid #d0d8e8;
+      border-radius: 6px; font-size: 11px; font-family: inherit;
+      color: #444; background: #fafbff; outline: none; cursor: pointer;
+      text-align: center;
+    }
+    .expect-select:focus { border-color: #4a6cf7; }
+    .expect-strong  { color: #c62828; font-weight: 700; }
+    .expect-weak    { color: #00897b; font-weight: 700; }
+    .expect-special { color: #e65100; font-weight: 700; }
+
     .btn-del-row {
       width: 26px; height: 26px; border-radius: 50%;
       border: 1.5px solid #e0e4ee; background: #fff; color: #bbb;
@@ -306,11 +318,15 @@
     /* 打印样式 */
     @media (max-width: 900px) {
       .sector-col-head { grid-template-columns: 32px 1fr 50px 80px 70px 24px; }
-      .sector-col-head span:nth-child(5),
       .sector-col-head span:nth-child(6),
-      .sector-col-head span:nth-child(7) { display: none; }
+      .sector-col-head span:nth-child(7),
+      .sector-col-head span:nth-child(8),
+      .sector-col-head span:nth-child(9) { display: none; }
       .sector-row { grid-template-columns: 32px 1fr 50px 80px 70px 24px; }
-      .sector-row .dragon-input:nth-child(6),
+      .sector-row .dragon-input:nth-child(7),
+      .sector-row .expect-select:nth-child(8),
+      .sector-row .dragon-input:nth-child(9),
+      .sector-row .expect-select:nth-child(10) { display: none; }
       .sector-row .judge-cell { display: none; }
       .logic-row { display: none; }
       .container { padding: 20px; }
@@ -339,7 +355,7 @@
       .section-divider { margin:14px 0 0!important; }
       .sector-area, .stock-area { padding:12px 10px 14px!important; }
       .sector-title, .stock-title { font-size:12px!important; }
-      .sector-name-input, .sector-count-input, .stock-name-input, .stage-select { font-size:11px!important; padding:5px 6px!important; }
+      .sector-name-input, .sector-count-input, .stock-name-input, .stage-select, .expect-select { font-size:11px!important; padding:5px 6px!important; }
       .judge-cell { font-size:11px!important; }
       .datetime-bar { font-size:9px!important; margin-top:10px!important; }
       .logic-textarea { min-height:36px!important; font-size:10px!important; }
@@ -357,6 +373,9 @@
       .judge-ms { background:#fff8e1!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .judge-watch { background:#e8f5e9!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .judge-weak { background:#e0f2f1!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .expect-strong { color:#c62828!important; font-weight:700!important; }
+      .expect-weak    { color:#00897b!important; font-weight:700!important; }
+      .expect-special { color:#e65100!important; font-weight:700!important; }
     }
   </style>
 </head>
@@ -421,7 +440,9 @@
         <span>阶段</span>
         <span>判断</span>
         <span>龙一</span>
+        <span>预期</span>
         <span>龙二</span>
+        <span>预期</span>
         <span></span>
       </div>
       <div class="sector-list" id="sectorList"></div>
@@ -526,6 +547,17 @@
     if(n===1)return'rank-1'; if(n===2)return'rank-2'; if(n===3)return'rank-3'; return'rank-n';
   }
 
+  const EXPECT_OPTIONS = ['续强','强转弱','弱转强','续弱','大震荡','涨停','跌停'];
+  const EXPECT_CLASS = {
+    '续强':   'expect-strong',
+    '涨停':   'expect-strong',
+    '弱转强':  'expect-strong',
+    '强转弱':  'expect-weak',
+    '续弱':   'expect-weak',
+    '跌停':   'expect-weak',
+    '大震荡':  'expect-special',
+  };
+
   function buildStageSelect(selectedVal) {
     let html = '<select class="stage-select" onchange="updateSectorJudge(this)">';
     STAGE_OPTIONS.forEach(s => {
@@ -536,9 +568,23 @@
     return html;
   }
 
-  function addSectorRow(name, count, stage, dragon1, dragon2, logic) {
+  function buildExpectSelect(selectedVal) {
+    let html = '<select class="expect-select" onchange="updateExpectColor(this)">';
+    html += '<option value="">—</option>';
+    EXPECT_OPTIONS.forEach(s => {
+      const sel = (s === selectedVal) ? ' selected' : '';
+      const cls = EXPECT_CLASS[s] || '';
+      html += '<option value="'+s+'" class="'+cls+'" '+sel+'>'+s+'</option>';
+    });
+    html += '</select>';
+    return html;
+  }
+
+  function addSectorRow(name, count, stage, dragon1, dragon2, expect1, expect2, logic) {
     name=name||''; count=count||''; stage=stage||'';
-    dragon1=dragon1||''; dragon2=dragon2||''; logic=logic||'';
+    dragon1=dragon1||''; dragon2=dragon2||'';
+    expect1=expect1||''; expect2=expect2||'';
+    logic=logic||'';
     sectorCount++;
     const n = document.querySelectorAll('.sector-entry').length + 1;
     const list = document.getElementById('sectorList');
@@ -547,6 +593,8 @@
     entry.dataset.id = sectorCount;
 
     const stageSel = buildStageSelect(stage);
+    const expectSel1 = buildExpectSelect(expect1);
+    const expectSel2 = buildExpectSelect(expect2);
     const j = stage && STAGE_JUDGE[stage] ? STAGE_JUDGE[stage] : null;
 
     entry.innerHTML =
@@ -557,7 +605,9 @@
         stageSel+
         '<div class="judge-cell '+(j?j.cls:'judge-empty')+'">'+(j?j.text:'—')+'</div>'+
         '<input class="dragon-input" type="text" placeholder="龙一" value="'+dragon1+'">'+
+        expectSel1+
         '<input class="dragon-input" type="text" placeholder="龙二" value="'+dragon2+'">'+
+        expectSel2+
         '<button class="btn-del-row" onclick="delSectorRow(this)" title="删除">×</button>'+
       '</div>'+
       '<div class="logic-row">'+
@@ -595,6 +645,12 @@
       judgeCell.textContent = '—';
       judgeCell.className = 'judge-cell judge-empty';
     }
+  }
+
+  function updateExpectColor(el) {
+    const val = el.value;
+    const cls = val ? (EXPECT_CLASS[val] || '') : '';
+    el.className = 'expect-select ' + cls;
   }
 
   // ========== 个股相关 ==========
