@@ -147,10 +147,10 @@
     .sector-col-head span { font-size: 11px; color: #aaa; font-weight: 600; text-align: center; }
     .sector-col-head span:nth-child(2) { text-align: left; padding-left: 4px; }
 
-    /* 个股表头 - 类似板块但无涨停列 */
+    /* 趋势个股表头 */
     .stock-col-head {
       display: grid;
-      grid-template-columns: 36px 1fr 90px 90px 26px;
+      grid-template-columns: 36px 1fr 110px 90px 26px;
       gap: 6px; align-items: center;
       margin-bottom: 4px; padding: 0 2px;
     }
@@ -175,7 +175,7 @@
       grid-template-columns: 36px 1fr 60px 90px 90px 70px 90px 70px 90px 26px;
     }
     .stock-row {
-      grid-template-columns: 36px 1fr 90px 90px 26px;
+      grid-template-columns: 36px 1fr 110px 90px 26px;
     }
 
     /* 上涨逻辑子行 */
@@ -279,6 +279,30 @@
     .expect-weak    { color: #00897b; font-weight: 700; }
     .expect-special { color: #e65100; font-weight: 700; }
 
+    /* 跌破前低/结构破坏选择 */
+    .stock-toggle-cell {
+      display: flex; flex-direction: column; gap: 3px; align-items: center;
+    }
+    .stock-toggle-label {
+      font-size: 9px; color: #bbb; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; max-width: 100%; text-align: center;
+    }
+    .stock-toggle-group {
+      display: flex; gap: 2px;
+    }
+    .stock-toggle-btn {
+      padding: 4px 6px; border-radius: 4px; border: 1.5px solid #c8d0e0;
+      background: #fff; font-size: 11px; font-family: inherit;
+      cursor: pointer; transition: all 0.15s; font-weight: 600; color: #aaa;
+    }
+    .stock-toggle-btn:hover { border-color: #4a6cf7; color: #4a6cf7; }
+    .stock-toggle-btn.yes {
+      background: #e8f5e9; border-color: #43a047; color: #2e7d32;
+    }
+    .stock-toggle-btn.no {
+      background: #fff0f0; border-color: #e53935; color: #c62828;
+    }
+
     .btn-del-row {
       width: 26px; height: 26px; border-radius: 50%;
       border: 1.5px solid #e0e4ee; background: #fff; color: #bbb;
@@ -357,8 +381,8 @@
       .sector-row, .stock-row { gap:3px!important; }
       .sector-col-head { grid-template-columns:28px 1fr 44px 72px 60px 60px 72px 60px 70px 20px!important; }
       .sector-row { grid-template-columns:28px 1fr 44px 72px 60px 60px 72px 60px 70px 20px!important; }
-      .stock-col-head { grid-template-columns:28px 1fr 72px 60px 20px!important; }
-      .stock-row { grid-template-columns:28px 1fr 72px 60px 20px!important; }
+      .stock-col-head { grid-template-columns:28px 1fr 88px 72px 20px!important; }
+      .stock-row { grid-template-columns:28px 1fr 88px 72px 20px!important; }
 
       .rank-badge, .stock-rank-badge { width:22px!important; height:22px!important; border-radius:5px!important; font-size:9px!important; }
       .stock-rank-badge { border-radius:50%!important; }
@@ -368,6 +392,10 @@
       }
       .sector-count-input { font-size:11px!important; }
       .judge-cell { font-size:9px!important; padding:4px 2px!important; border-radius:4px!important; }
+
+      .stock-toggle-label { font-size:9px!important; }
+      .stock-toggle-group { gap:2px!important; }
+      .stock-toggle-btn { padding:2px 4px!important; font-size:9px!important; border-radius:3px!important; }
 
       .btn-del-row { width:20px!important; height:20px!important; font-size:12px!important; border-radius:50%!important; }
 
@@ -480,8 +508,8 @@
       <div class="stock-col-head">
         <span>序号</span>
         <span>个股名称/代码</span>
-        <span>阶段</span>
-        <span>判断</span>
+        <span>跌破前低快速回拉</span>
+        <span>结构破坏</span>
         <span></span>
       </div>
       <div class="stock-list" id="stockList"></div>
@@ -679,8 +707,26 @@
     if(n===1)return'rank-s1'; if(n===2)return'rank-s2'; if(n===3)return'rank-s3'; return'rank-sn';
   }
 
-  function addStockRow(name, stage, logic) {
-    name=name||''; stage=stage||''; logic=logic||'';
+  function buildStockToggle(colName, val) {
+    const isYes = val === 'yes';
+    const isNo  = val === 'no';
+    return '<div class="stock-toggle-cell">' +
+      '<div class="stock-toggle-label">'+colName+'</div>' +
+      '<div class="stock-toggle-group">' +
+        '<button class="stock-toggle-btn '+(isYes?'yes':'')+'" onclick="setStockToggle(this,\'yes\')">✓</button>' +
+        '<button class="stock-toggle-btn '+(isNo?'no':'')+'"  onclick="setStockToggle(this,\'no\')">✗</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function setStockToggle(btn, val) {
+    const group = btn.parentElement;
+    group.querySelectorAll('.stock-toggle-btn').forEach(b => b.classList.remove('yes','no'));
+    btn.classList.add(val);
+  }
+
+  function addStockRow(name, breakLow, structBreak) {
+    name=name||''; breakLow=breakLow||''; structBreak=structBreak||'';
     stockCount++;
     const n = document.querySelectorAll('.stock-entry').length + 1;
     const list = document.getElementById('stockList');
@@ -688,20 +734,20 @@
     entry.className = 'stock-entry';
     entry.dataset.id = stockCount;
 
-    const stageSel = buildStageSelect(stage);
-    const j = stage && STAGE_JUDGE[stage] ? STAGE_JUDGE[stage] : null;
+    const toggle1 = buildStockToggle('跌破前低\n快速回拉', breakLow);
+    const toggle2 = buildStockToggle('结构破坏', structBreak);
 
     entry.innerHTML =
       '<div class="stock-row">'+
         '<div class="stock-rank-badge '+getStockRankClass(n)+'">'+n+'</div>'+
         '<input class="stock-name-input" type="text" placeholder="个股名称/代码" value="'+name+'" oninput="updateStockRanks()">'+
-        stageSel+
-        '<div class="judge-cell '+(j?j.cls:'judge-empty')+'">'+(j?j.text:'—')+'</div>'+
+        toggle1+
+        toggle2+
         '<button class="btn-del-row" onclick="delStockRow(this)" title="删除">×</button>'+
       '</div>'+
       '<div class="logic-row">'+
         '<div class="logic-label">📝</div>'+
-        '<textarea class="logic-textarea" placeholder="上涨逻辑（可回车换行）">'+logic+'</textarea>'+
+        '<textarea class="logic-textarea" placeholder="上涨逻辑（可回车换行）"></textarea>'+
       '</div>';
 
     list.appendChild(entry);
